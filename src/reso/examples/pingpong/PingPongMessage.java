@@ -22,7 +22,7 @@ implements Message {
 	}
 	
 	public String toString() {
-            return "PingPong [num=" + num + "]";
+		return "PingPong [num=" + num + "]";
 	}
 
 	@Override
