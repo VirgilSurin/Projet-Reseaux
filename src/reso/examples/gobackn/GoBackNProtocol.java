@@ -30,26 +30,30 @@ public class GoBackNProtocol implements IPInterfaceListener {
     
 
     private class MyTimer extends AbstractTimer {
-    	public MyTimer(AbstractScheduler scheduler, double interval) {
-    		super(scheduler, interval, false);
+        
+        private IPAddress dst;
+
+    	public MyTimer(AbstractScheduler scheduler, double interval, IPAddress dst) {
+            super(scheduler, interval, false);
+            this.dst = dst;
     	}
     	protected void run() throws Exception {
+            timeout(dst);
             System.out.println("app=[" + host.name + "]" +
                                " time=" + scheduler.getCurrentTime());
         }
     }
 
-public GoBackNProtocol(IPHost host) {
+    public GoBackNProtocol(IPHost host) {
         this.host= host;
     	host.getIPLayer().addListener(this.IP_PROTO_GOBACKN, this);
-        timer = new MyTimer(host.getNetwork().getScheduler(), 1); // TODO : page 86 calcul TRO pour interval
+        
     }
 	
     public GoBackNProtocol(IPHost host, TCPSegment[] packetList) {
         this.host= host;
         this.packetList = packetList;
     	host.getIPLayer().addListener(this.IP_PROTO_GOBACKN, this);
-        timer = new MyTimer(host.getNetwork().getScheduler(), 1); // TODO : page 86 calcul TRO pour interval
     }
 	
     @Override
@@ -65,6 +69,7 @@ public GoBackNProtocol(IPHost host) {
             if (sendBase == sequenceNumber) {
                 timer.stop();
             } else {
+                timer = new MyTimer(host.getNetwork().getScheduler(), 1, dst); // TODO : page 86 calcul TRO pour interval
                 timer.start();
             }
         }
@@ -99,7 +104,8 @@ public GoBackNProtocol(IPHost host) {
             packetList[sequenceNumber] = packet;
             host.getIPLayer().send(IPAddress.ANY, destination, IP_PROTO_GOBACKN, packet);
             if (sendBase == sequenceNumber) {
-            timer.start();
+                timer = new MyTimer(host.getNetwork().getScheduler(), 1, destination); // TODO : page 86 calcul TRO pour interval
+                timer.start();
             }
             sequenceNumber += 1;
         } else {
