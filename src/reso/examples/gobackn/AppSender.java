@@ -27,12 +27,16 @@ public class AppSender
         for (int i = 0; i < numberOfPackets; i++) {
             packetList[i] = new TCPSegment(new int[] { rand.nextInt() }, i);
         }
-        GoBackNProtocol transport = new GoBackNProtocol((IPHost) host, dst, packetList);
-
+        GoBackNProtocol transport = new GoBackNProtocol((IPHost) host, packetList);
 
         for(int i=0; i < numberOfPackets; i++){
             transport.sendData(packetList[i].data[0], dst);
-            
+
+            if (!transport.timer.isRunning()) {
+                transport.timeout(dst);
+            } else {
+                transport.sendData(packetList[i].data[0], dst);
+            }
         }
     }
     

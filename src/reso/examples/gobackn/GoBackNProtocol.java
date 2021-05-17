@@ -49,7 +49,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
     	host.getIPLayer().addListener(this.IP_PROTO_GOBACKN, this);
         
     }
-	
+    
     public GoBackNProtocol(IPHost host, TCPSegment[] packetList) {
         this.host= host;
         this.packetList = packetList;
@@ -69,7 +69,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
             if (sendBase == sequenceNumber) {
                 timer.stop();
             } else {
-                timer = new MyTimer(host.getNetwork().getScheduler(), 1, dst); // TODO : page 86 calcul TRO pour interval
+                timer = new MyTimer(host.getNetwork().getScheduler(), 1, datagram.src); // TODO : page 86 calcul TRO pour interval
                 timer.start();
             }
         }
