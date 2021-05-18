@@ -96,7 +96,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * The receiving method of the protocol. Treats incoming packets.
      * @param src source of the message.
      * @param datagram content of the message.
-     * @throws Exception caught from sendAcknowledgment() method.
+     * @throws Exception caught from local sendAcknowledgment() method.
      */
     @Override
     public void receive(IPInterfaceAdapter src, Datagram datagram) throws Exception {
