@@ -22,7 +22,7 @@ public class AppSender
      * The number of packets to deliver.
      */
     private final int numberOfPackets;
-
+    
     /**
      * Sender application constructor.
      * @param host of the protocol.
