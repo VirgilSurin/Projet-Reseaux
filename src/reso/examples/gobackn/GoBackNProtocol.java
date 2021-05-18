@@ -52,7 +52,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
     /**
      * Instance of the timer.
      */
-    protected AbstractTimer timer;
+    protected MyTimer timer;
 
     /**
      * Alpha.
@@ -62,18 +62,19 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * Beta.
      */
     private static double BETA = 0.25;
-    /**
-     * R.
-     */
-    private double R;
+
     /**
      * Previous SRTT.
      */
-    private double oldSRTT;
+    private double SRTT;
     /**
      * Old DevRTT
      */
-    private double oldDevRTT;
+    private double DevRTT;
+    /**
+     * RTO
+     */
+    private double RTO;
 
     /**
      * Built-in timer adapted from the AppAlone class and using the same structure and principles.
@@ -81,6 +82,8 @@ public class GoBackNProtocol implements IPInterfaceListener {
     private class MyTimer extends AbstractTimer {
         
         private IPAddress dst;
+        private double startTime;
+        private double stopTime;
 
     	public MyTimer(AbstractScheduler scheduler, double interval, IPAddress dst) {
             super(scheduler, interval, false);
@@ -91,6 +94,22 @@ public class GoBackNProtocol implements IPInterfaceListener {
             System.out.println("app=[" + host.name + "]" +
                                " time=" + scheduler.getCurrentTime());
         }
+
+        @Override
+        public void start() {
+            super.start();
+            startTime = scheduler.getCurrentTime();
+        }
+
+        @Override
+        public void stop() {
+            super.stop();
+            stopTime = scheduler.getCurrentTime();
+        }
+
+        public double getR(){
+    	    return stopTime - startTime;
+        }
     }
 
     /**
@@ -100,7 +119,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
     public GoBackNProtocol(IPHost host) {
         this.host= host;
     	host.getIPLayer().addListener(this.IP_PROTO_GOBACKN, this);
-        
+    	RTO = 3;
     }
 
     /**
@@ -111,7 +130,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
     public GoBackNProtocol(IPHost host, TCPSegment[] packetList) {
         this.host= host;
         this.packetList = packetList;
-    	host.getIPLayer().addListener(this.IP_PROTO_GOBACKN, this);
+        RTO = 3;
     }
 
     /**
@@ -132,8 +151,9 @@ public class GoBackNProtocol implements IPInterfaceListener {
             sendBase = segment.sequenceNumber + 1;
             if (sendBase == sequenceNumber) {
                 timer.stop();
+                changeRTO();
             } else {
-                timer = new MyTimer(host.getNetwork().getScheduler(), getRTO(), datagram.src); // TODO : page 86 calcul TRO pour interval
+                timer = new MyTimer(host.getNetwork().getScheduler(), RTO, datagram.src);
                 timer.start();
             }
             if (sequenceNumber < packetList.length) {
@@ -182,7 +202,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
             packetList[sequenceNumber] = packet;
             host.getIPLayer().send(IPAddress.ANY, destination, IP_PROTO_GOBACKN, packet);
             if (sendBase == sequenceNumber) {
-                timer = new MyTimer(host.getNetwork().getScheduler(), getRTO(), destination); // TODO : page 86 calcul TRO pour interval
+                timer = new MyTimer(host.getNetwork().getScheduler(), RTO, destination);
                 timer.start();
             }
             sequenceNumber += 1;
@@ -190,7 +210,6 @@ public class GoBackNProtocol implements IPInterfaceListener {
             // no gud
         }
 
-        
     }
 
     /**
@@ -206,37 +225,37 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * Method to get current SRTT.
      * @return current SRTT.
      */
-    private double getSRTT(int i){
-        if (i != 0) {
-            return ((1 - ALPHA) * oldSRTT + ALPHA * R);
+    private double getSRTT(){
+        if (SRTT > 0) {
+            SRTT =  ((1 - ALPHA) * this.SRTT + ALPHA * timer.getR());
         }
         else {
-            return R;
+            SRTT = timer.getR();
         }
+        return SRTT;
     }
 
     /**
      * Method to get current DevRTT.
      * @return current DevRTT.
      */
-    private double getDevRTT(int i){
-        if (i != 0) {
-            return ((1 - BETA) * oldDevRTT + BETA * Math.abs(getSRTT(i) - R));
+    private double getDevRTT(){
+        if (DevRTT > 0) {
+            DevRTT = ((1 - BETA) * DevRTT + BETA * Math.abs(getSRTT() - timer.getR()));
         }
         else {
-            return R/2;
+            DevRTT = timer.getR()/2;
         }
-
+        return DevRTT;
     }
 
     /**
      * Method to get current RTO.
      * @return current RTO.
      */
-    private double getRTO(){
-        int i = sequenceNumber;
-        double devRTT = getDevRTT(i);
-        return getSRTT(i) + 4*devRTT;
+    private void changeRTO(){
+        double devRTT = getDevRTT();
+        RTO = getSRTT() + 4*devRTT;
     }
 
 
