@@ -34,18 +34,22 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * Current sequence number, determines packet being treated.
      */
     public int sequenceNumber = 0;
+
     /**
      * The sequence number of 1st packet in window, correspond to the start of the window.
      */
     public int sendBase = 0;
+
     /**
      * Size of the window. End of the window is sequenceNumber = sendBase + size.
      */
     public int size = 5;
+
     /**
      * ACK detection boolean.
      */
     private boolean ack = false;
+
     /**
      * The list of packets to be treated by the protocol.
      */
