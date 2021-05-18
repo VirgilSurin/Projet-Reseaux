@@ -1,34 +1,61 @@
 
 package reso.examples.gobackn;
 
-import java.util.ArrayList;
-import java.util.LinkedList;
-
 import reso.common.AbstractTimer;
-import reso.common.HardwareInterface;
 import reso.ip.Datagram;
 import reso.ip.IPAddress;
 import reso.ip.IPHost;
 import reso.ip.IPInterfaceAdapter;
 import reso.ip.IPInterfaceListener;
-import reso.ip.IPLayer;
 import reso.scheduler.AbstractScheduler;
 
+/**
+ * GoBackNProtocol, implementation of the namesake pipelining protocol.
+ * Uses two constructors, one using a host parameter and a packet list parameters for the Sender application, and the
+ * other using only a host parameter for the Receiver application.
+ * Uses a built-in timer named MyTimer, adapted from the AppAlone class and using the same structure and principles.
+ */
 public class GoBackNProtocol implements IPInterfaceListener {
 
+    /**
+     * The protocol number identifying Go-Back-N.
+     */
     public static final int IP_PROTO_GOBACKN= Datagram.allocateProtocolNumber("GOBACKN");
-    
+
+    /**
+     * The host of the protocol.
+     */
     private final IPHost host;
 
+    /**
+     * Current sequence number, determines packet being treated.
+     */
     public int sequenceNumber = 0;
+    /**
+     * The sequence number of 1st packet in window, correspond to the start of the window.
+     */
     public int sendBase = 0;
+    /**
+     * Size of the window. End of the window is sequenceNumber = sendBase + size.
+     */
     public int size = 5;
+    /**
+     * ACK detection boolean.
+     */
     private boolean ack = false;
+    /**
+     * The list of packets to be treated by the protocol.
+     */
     private TCPSegment[] packetList;
 
+    /**
+     * Instance of the timer.
+     */
     protected AbstractTimer timer;
-    
 
+    /**
+     * Built-in timer adapted from the AppAlone class and using the same structure and principles.
+     */
     private class MyTimer extends AbstractTimer {
         
         private IPAddress dst;
@@ -44,18 +71,33 @@ public class GoBackNProtocol implements IPInterfaceListener {
         }
     }
 
+    /**
+     * Receiver GoBackNProtocol constructor.
+     * @param host of the protocol.
+     */
     public GoBackNProtocol(IPHost host) {
         this.host= host;
     	host.getIPLayer().addListener(this.IP_PROTO_GOBACKN, this);
         
     }
-    
+
+    /**
+     * Sender GoBackNProtocol constructor.
+     * @param host of the protocol.
+     * @param packetList to be treated by the protocol.
+     */
     public GoBackNProtocol(IPHost host, TCPSegment[] packetList) {
         this.host= host;
         this.packetList = packetList;
     	host.getIPLayer().addListener(this.IP_PROTO_GOBACKN, this);
     }
-	
+
+    /**
+     * The receiving method of the protocol. Treats incoming packets.
+     * @param src source of the message.
+     * @param datagram content of the message.
+     * @throws Exception caught from sendAcknowledgment() method.
+     */
     @Override
     public void receive(IPInterfaceAdapter src, Datagram datagram) throws Exception {
             
@@ -89,6 +131,11 @@ public class GoBackNProtocol implements IPInterfaceListener {
         }
     }
 
+    /**
+     * Timeout event handler.
+     * @param dst destination of the cause of the timeout.
+     * @throws Exception caught from reso.ip.IPLayer.send() method.
+     */
     public void timeout(IPAddress dst) throws Exception {
         if (!timer.isRunning()) {
             for (int i = sendBase; i < sequenceNumber; i++) {
@@ -97,6 +144,12 @@ public class GoBackNProtocol implements IPInterfaceListener {
         }
     }
 
+    /**
+     * The sending method of the protocol. Proceeds to send packet to the destination.
+     * @param data to send.
+     * @param destination of the message.
+     * @throws Exception caught from reso.ip.IPLayer.send() method.
+     */
     public void sendData(int data, IPAddress destination) throws Exception{
         if (sequenceNumber < sendBase + size) {
             int[] segmentData = new int[]{data};
@@ -115,6 +168,11 @@ public class GoBackNProtocol implements IPInterfaceListener {
         
     }
 
+    /**
+     * ACK sending method of the protocol. Acknowledges messages.
+     * @param datagram
+     * @throws Exception
+     */
     private void sendAcknowledgment(Datagram datagram) throws Exception{
         host.getIPLayer().send(IPAddress.ANY, datagram.src, IP_PROTO_GOBACKN, new TCPSegment(sequenceNumber));
     }
