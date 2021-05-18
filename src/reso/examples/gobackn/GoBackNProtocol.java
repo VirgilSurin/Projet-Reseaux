@@ -1,6 +1,8 @@
 
 package reso.examples.gobackn;
 
+import java.util.Random;
+
 import reso.common.AbstractTimer;
 import reso.ip.Datagram;
 import reso.ip.IPAddress;
@@ -52,6 +54,16 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * Instance of the timer.
      */
     protected AbstractTimer timer;
+
+    /**
+     * Random generator used to simulate the loss of packet
+     */
+    private static Random rand = new Random();
+
+    /**
+     *^The probability that has a packet to get lost.
+     */
+    private final double lossProbability = 0.30;
 
     /**
      * Built-in timer adapted from the AppAlone class and using the same structure and principles.
@@ -154,11 +166,17 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * @throws Exception caught from reso.ip.IPLayer.send() method.
      */
     public void sendData(int data, IPAddress destination) throws Exception{
+        
         if (sequenceNumber < sendBase + size) {
             int[] segmentData = new int[]{data};
             TCPSegment packet = new TCPSegment(segmentData, sequenceNumber);
             packetList[sequenceNumber] = packet;
-            host.getIPLayer().send(IPAddress.ANY, destination, IP_PROTO_GOBACKN, packet);
+
+            double x = rand.nextDouble();
+            if (x > lossProbability) {
+                // if x > lossProbability we can send the packet. Otherwhise the packet is lost.
+                host.getIPLayer().send(IPAddress.ANY, destination, IP_PROTO_GOBACKN, packet);
+            }
             if (sendBase == sequenceNumber) {
                 timer = new MyTimer(host.getNetwork().getScheduler(), 1, destination); // TODO : page 86 calcul TRO pour interval
                 timer.start();
