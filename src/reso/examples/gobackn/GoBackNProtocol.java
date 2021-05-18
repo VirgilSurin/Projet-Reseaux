@@ -64,29 +64,32 @@ public class GoBackNProtocol implements IPInterfaceListener {
     /**
      * The probability that has a packet to get lost.
      */
-    private final double lossProbability = 0.30;
+    private final double lossProbability = 0.00;
     
     /**
      * Alpha.
      */
     private static double ALPHA = 0.125;
+    
     /**
      * Beta.
      */
     private static double BETA = 0.25;
+    
     /**
      * R.
      */
     private double R;
+    
     /**
      * Previous SRTT.
      */
     private double oldSRTT;
+    
     /**
      * Old DevRTT
      */
     private double oldDevRTT;
->>>>>>> d3d490a5b1a410dcf575efa7c3c138b7e081757a
 
     /**
      * Built-in timer adapted from the AppAlone class and using the same structure and principles.
@@ -146,7 +149,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
             if (sendBase == sequenceNumber) {
                 timer.stop();
             } else {
-                timer = new MyTimer(host.getNetwork().getScheduler(), getRTO(), datagram.src); // TODO : page 86 calcul TRO pour interval
+                timer = new MyTimer(host.getNetwork().getScheduler(), 3, datagram.src); // TODO : page 86 calcul TRO pour interval
                 timer.start();
             }
             if (sequenceNumber < packetList.length) {
@@ -175,10 +178,9 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * @throws Exception caught from reso.ip.IPLayer.send() method.
      */
     public void timeout(IPAddress dst) throws Exception {
-        if (!timer.isRunning()) {
-            for (int i = sendBase; i < sequenceNumber; i++) {
-                host.getIPLayer().send(IPAddress.ANY, dst, IP_PROTO_GOBACKN, packetList[i]);
-            }
+        System.out.println("========== TIMEOUT ==========");
+        for (int i = sendBase; i < sequenceNumber; i++) {
+            host.getIPLayer().send(IPAddress.ANY, dst, IP_PROTO_GOBACKN, packetList[i]);
         }
     }
 
@@ -201,7 +203,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
                 host.getIPLayer().send(IPAddress.ANY, destination, IP_PROTO_GOBACKN, packet);
             }
             if (sendBase == sequenceNumber) {
-                timer = new MyTimer(host.getNetwork().getScheduler(), getRTO(), destination); // TODO : page 86 calcul TRO pour interval
+                timer = new MyTimer(host.getNetwork().getScheduler(), 3, destination); // TODO : page 86 calcul TRO pour interval
                 timer.start();
             }
             sequenceNumber += 1;
