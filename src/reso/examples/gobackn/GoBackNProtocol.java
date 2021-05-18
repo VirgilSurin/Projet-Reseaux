@@ -8,6 +8,7 @@ import reso.ip.IPHost;
 import reso.ip.IPInterfaceAdapter;
 import reso.ip.IPInterfaceListener;
 import reso.scheduler.AbstractScheduler;
+import java.lang.Math;
 
 /**
  * GoBackNProtocol, implementation of the namesake pipelining protocol.
@@ -52,6 +53,27 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * Instance of the timer.
      */
     protected AbstractTimer timer;
+
+    /**
+     * Alpha.
+     */
+    private static double ALPHA = 0.125;
+    /**
+     * Beta.
+     */
+    private static double BETA = 0.25;
+    /**
+     * R.
+     */
+    private double R;
+    /**
+     * Previous SRTT.
+     */
+    private double oldSRTT;
+    /**
+     * Old DevRTT
+     */
+    private double oldDevRTT;
 
     /**
      * Built-in timer adapted from the AppAlone class and using the same structure and principles.
@@ -111,7 +133,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
             if (sendBase == sequenceNumber) {
                 timer.stop();
             } else {
-                timer = new MyTimer(host.getNetwork().getScheduler(), 1, datagram.src); // TODO : page 86 calcul TRO pour interval
+                timer = new MyTimer(host.getNetwork().getScheduler(), getRTO(), datagram.src); // TODO : page 86 calcul TRO pour interval
                 timer.start();
             }
             if (sequenceNumber < packetList.length) {
@@ -160,7 +182,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
             packetList[sequenceNumber] = packet;
             host.getIPLayer().send(IPAddress.ANY, destination, IP_PROTO_GOBACKN, packet);
             if (sendBase == sequenceNumber) {
-                timer = new MyTimer(host.getNetwork().getScheduler(), 1, destination); // TODO : page 86 calcul TRO pour interval
+                timer = new MyTimer(host.getNetwork().getScheduler(), getRTO(), destination); // TODO : page 86 calcul TRO pour interval
                 timer.start();
             }
             sequenceNumber += 1;
@@ -178,6 +200,43 @@ public class GoBackNProtocol implements IPInterfaceListener {
      */
     private void sendAcknowledgment(Datagram datagram) throws Exception{
         host.getIPLayer().send(IPAddress.ANY, datagram.src, IP_PROTO_GOBACKN, new TCPSegment(sequenceNumber));
+    }
+
+    /**
+     * Method to get current SRTT.
+     * @return current SRTT.
+     */
+    private double getSRTT(int i){
+        if (i != 0) {
+            return ((1 - ALPHA) * oldSRTT + ALPHA * R);
+        }
+        else {
+            return R;
+        }
+    }
+
+    /**
+     * Method to get current DevRTT.
+     * @return current DevRTT.
+     */
+    private double getDevRTT(int i){
+        if (i != 0) {
+            return ((1 - BETA) * oldDevRTT + BETA * Math.abs(getSRTT(i) - R));
+        }
+        else {
+            return R/2;
+        }
+
+    }
+
+    /**
+     * Method to get current RTO.
+     * @return current RTO.
+     */
+    private double getRTO(){
+        int i = sequenceNumber;
+        double devRTT = getDevRTT(i);
+        return getSRTT(i) + 4*devRTT;
     }
 
 
