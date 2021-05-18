@@ -114,6 +114,9 @@ public class GoBackNProtocol implements IPInterfaceListener {
                 timer = new MyTimer(host.getNetwork().getScheduler(), 1, datagram.src); // TODO : page 86 calcul TRO pour interval
                 timer.start();
             }
+            if (sequenceNumber < packetList.length) {
+                sendData(packetList[sequenceNumber].data[0], datagram.src);
+            }
         }
         else{
             //TODO Check if corrupt or not
