@@ -17,6 +17,7 @@ import java.lang.Math;
  * Uses two constructors, one using a host parameter and a packet list parameters for the Sender application, and the
  * other using only a host parameter for the Receiver application.
  * Uses a built-in timer named MyTimer, adapted from the AppAlone class and using the same structure and principles.
+ * @see
  */
 public class GoBackNProtocol implements IPInterfaceListener {
 
@@ -92,6 +93,37 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * RTO
      */
     private double RTO = 3;
+
+    // THIS IS FOR CONGESTION CONTROL VARIABLES ============================================
+    /**
+     * Storage variable for old window size. Used in congestion control.
+     */
+    private int oldSize;
+    /**
+     * Storage variable for new window size. Used in congestion control.
+     */
+    private int newSize;
+    /**
+     * MSS constant for congestion control. In every case here, equals 1.
+     */
+    private final int MSS = 1;
+    /**
+     * Original size of window.
+     */
+    private final int OGSize = size;
+    /**
+     * Threshold to delimit slow start, set to a high value to begin with.
+     */
+    private final int sstresh = OGSize + OGSize/2;
+    /**
+     * Sequence number of previous ack.
+     */
+    private int previousSequenceNumber;
+    /**
+     * Consecutive receive of same sequence number.
+     */
+    private int consecutiveAcks;
+    // END OF VARIABLES =======================================================================
 
     /**
      * Built-in timer adapted from the AppAlone class and using the same structure and principles.
@@ -200,9 +232,20 @@ public class GoBackNProtocol implements IPInterfaceListener {
         System.out.println("Data (" + (int) (host.getNetwork().getScheduler().getCurrentTime()*1000) + "ms)" +
                            " host=" + host.name + ", dgram.src=" + datagram.src + ", dgram.dst=" +
                            datagram.dst + ", iif=" + src + ", data=" + segment);
+        //System.err.println(size);
         if(segment.isAck()){
             //TODO Check if corrupt or not
             sendBase = segment.sequenceNumber + 1;
+            if (segment.sequenceNumber == previousSequenceNumber){
+                consecutiveAcks += 1;
+            }
+            else {
+                consecutiveAcks = 0;
+            }
+            if (consecutiveAcks == 3){
+                size = size/2;
+            }
+            previousSequenceNumber = sequenceNumber;
             if (sendBase == sequenceNumber) {
                 timer.stop();
                 changeRTO();
@@ -215,7 +258,28 @@ public class GoBackNProtocol implements IPInterfaceListener {
                 timer.start();
             }
             if (sequenceNumber < packetList.length) {
-                sendData(packetList[sequenceNumber].data[0], datagram.src);
+                oldSize = size;
+                if (size < sstresh){
+                    size += MSS;
+                }
+                else {
+                    size = size + MSS/size;
+                }
+                newSize = size;
+                System.out.println(size);
+                /*
+                int increaseSending = (sendBase+size) - sequenceNumber-1;
+                do {
+                    sendData(packetList[sequenceNumber].data[0], datagram.src);
+                    increaseSending --;
+                }
+                while (increaseSending > 0);
+                */
+
+                for (int i = 0; i < ((sendBase+size) - sequenceNumber-1); i++){
+                    sendData(packetList[sequenceNumber].data[0], datagram.src);
+                }
+
             }
         }
         else{
@@ -242,7 +306,6 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * @prints timeout message.
      */
     public void timeout(IPAddress dst) throws Exception {
-        System.out.println("========== TIMEOUT ==========");
         for (int i = sendBase; i < sequenceNumber; i++) {
             host.getIPLayer().send(IPAddress.ANY, dst, IP_PROTO_GOBACKN, packetList[i]);
         }
