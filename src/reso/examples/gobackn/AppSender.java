@@ -39,6 +39,7 @@ public class AppSender
      * Starts the application.
      * @throws Exception from reso.example.gobackn.GoBackNProtocol.sendData()
      * and reso.example.gobackn.GoBackNProtocol.timeout methods(). Same ultimate source in reso.ip.IPLayer.send().
+     * @see reso.examples.gobackn.GoBackNProtocol GoBackNProtocol
      */
     public void start()
     throws Exception {
@@ -55,7 +56,7 @@ public class AppSender
     }
 
     /**
-     * Stops the application. #TODO
+     * Stops the application. #TODO might be useless. If so remove.
      */
     public void stop() {}
     

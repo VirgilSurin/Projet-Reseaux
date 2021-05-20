@@ -97,33 +97,64 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * Built-in timer adapted from the AppAlone class and using the same structure and principles.
      */
     private class MyTimer extends AbstractTimer {
-        
+
+        /**
+         * Destination IP address of the protocol.
+         */
         private IPAddress dst;
+        /**
+         * Start time of the timer.
+         */
         private double startTime;
+        /**
+         * Stop time of the timer.
+         */
         private double stopTime;
 
+        /**
+         * Constructor for the timer.
+         * @param scheduler and instance of an abstract scheduler.
+         * @param interval the interval of time for the timer to work.
+         * @param dst the destination of the protocol.
+         */
     	public MyTimer(AbstractScheduler scheduler, double interval, IPAddress dst) {
             super(scheduler, interval, false);
             this.dst = dst;
     	}
+
+        /**
+         * Called when the timer expires.
+         * @throws Exception caught from timeout.
+         * @see reso.examples.gobackn.GoBackNProtocol Exception origin.
+         * @prints the application using the protocol and the current time.
+         */
     	protected void run() throws Exception {
             timeout(dst);
             System.out.println("app=[" + host.name + "]" +
                                " time=" + scheduler.getCurrentTime());
         }
 
+        /**
+         * Starts the timer, stores the current value of time in startTime;
+         */
         @Override
         public void start() {
             super.start();
             startTime = scheduler.getCurrentTime();
         }
-
+        /**
+         * Stops the timer, stores the current value of time in stopTime;
+         */
         @Override
         public void stop() {
             super.stop();
             stopTime = scheduler.getCurrentTime();
         }
 
+        /**
+         * "R" used for formula transparency.
+         * @return the RTT of the timer.
+         */
         public double getR(){
     	    return stopTime - startTime;
         }
@@ -151,9 +182,16 @@ public class GoBackNProtocol implements IPInterfaceListener {
 
     /**
      * The receiving method of the protocol. Treats incoming packets.
+     * Datagrams are loaded in an instance of TCPSegment and sorted by nature (ACK message or not an ACK message).
+     * ACK messages trigger the progression of the window with cumulative logic and a new packet is sent.
+     * Acknowledges any other massage.
+     * Updates RTO after stopping any timer.
      * @param src source of the message.
      * @param datagram content of the message.
      * @throws Exception caught from local sendAcknowledgment() method.
+     * @see reso.examples.gobackn.GoBackNProtocol Exception origin.
+     * @prints "Data" + (receive time in ms), host, datagram source IP, datagram destination IP,
+     * ethernet interface name, and sequence number and nature (ACK or not) of the segment.
      */
     @Override
     public void receive(IPInterfaceAdapter src, Datagram datagram) throws Exception {
@@ -197,9 +235,11 @@ public class GoBackNProtocol implements IPInterfaceListener {
     }
 
     /**
-     * Timeout event handler.
+     * Timeout event handler. Tries to send again.
      * @param dst destination of the cause of the timeout.
      * @throws Exception caught from reso.ip.IPLayer.send() method.
+     * @see reso.ip.IPLayer Exception origin.
+     * @prints timeout message.
      */
     public void timeout(IPAddress dst) throws Exception {
         System.out.println("========== TIMEOUT ==========");
@@ -210,9 +250,12 @@ public class GoBackNProtocol implements IPInterfaceListener {
 
     /**
      * The sending method of the protocol. Proceeds to send packet to the destination.
+     * Handles packet loss simulation via random rejection.
      * @param data to send.
      * @param destination of the message.
      * @throws Exception caught from reso.ip.IPLayer.send() method.
+     * @see reso.ip.IPLayer Exception origin.
+     * @prints packet loss message if a packet is lost. Can be prevented by removing segment loss simulator (see code).
      */
     public void sendData(int data, IPAddress destination) throws Exception{
         if (sequenceNumber < sendBase + size) {
@@ -220,6 +263,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
             TCPSegment packet = new TCPSegment(segmentData, sequenceNumber);
             packetList[sequenceNumber] = packet;
 
+            //                              =>Segment loss simulator<=
             double x = rand.nextDouble();
             if (x > lossProbability) {
                 // if x > lossProbability we can send the packet. Otherwhise the packet is lost.
@@ -242,7 +286,8 @@ public class GoBackNProtocol implements IPInterfaceListener {
     /**
      * ACK sending method of the protocol. Acknowledges messages.
      * @param datagram
-     * @throws Exception
+     * @throws Exception caught from reso.ip.IPLayer.send() method.
+     * @see reso.ip.IPLayer Exception origin.
      */
     private void sendAcknowledgment(Datagram datagram) throws Exception{
         TCPSegment packet = new TCPSegment(sequenceNumber);

@@ -27,13 +27,14 @@ public class AppReceiver
 
 	/**
 	 * Starts the application.
+	 * @see reso.examples.gobackn.GoBackNProtocol GoBackNProtocol
 	 */
 	public void start() {
         GoBackNProtocol transport = new GoBackNProtocol((IPHost) host);
     }
 
 	/**
-	 * Stops the application. #TODO
+	 * Stops the application. #TODO might be useless. If so remove.
 	 */
 	public void stop() {}
 	
