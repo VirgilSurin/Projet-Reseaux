@@ -224,8 +224,13 @@ public class GoBackNProtocol implements IPInterfaceListener {
                            datagram.dst + ", iif=" + src + ", data=" + segment);
         if(segment.isAck()){
             // Is used to detect triple ack
-            if (repeatedAckNumber >= 0 && segment.sequenceNumber == repeatedAckNumber) {
-                tripleAck += 1;
+            if (repeatedAckNumber >= 0){
+                if (sequenceNumber == repeatedAckNumber){
+                    tripleAck += 1;
+                }
+                else {
+                    tripleAck = 0;
+                }
             }
             repeatedAckNumber = segment.sequenceNumber;
             if (tripleAck == 3) {
@@ -234,6 +239,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
                 tripleAck = 0;
                 timeout(datagram.src);
             }
+
 
 
             //TODO Check if corrupt or not
