@@ -10,6 +10,9 @@ import reso.ip.IPHost;
 import reso.ip.IPInterfaceAdapter;
 import reso.ip.IPInterfaceListener;
 import reso.scheduler.AbstractScheduler;
+
+import java.io.File;
+import java.io.FileWriter;
 import java.lang.Math;
 
 /**
@@ -46,7 +49,12 @@ public class GoBackNProtocol implements IPInterfaceListener {
     public int size = 5;
 
     /**
-     * ACK detection boolean.
+     * Old value os size, used to determine which packet to send next.
+     */    
+    public int oldSize = size;
+    
+    /**
+     * Last ack stored;
      */
     private Datagram ack = null;
 
@@ -210,7 +218,6 @@ public class GoBackNProtocol implements IPInterfaceListener {
      */
     @Override
     public void receive(IPInterfaceAdapter src, Datagram datagram) throws Exception {
-
     	TCPSegment segment= (TCPSegment) datagram.getPayload();
         System.out.println("Data (" + (int) (host.getNetwork().getScheduler().getCurrentTime()*1000) + "ms)" +
                            " host=" + host.name + ", dgram.src=" + datagram.src + ", dgram.dst=" +
@@ -324,7 +331,11 @@ public class GoBackNProtocol implements IPInterfaceListener {
     private void sendAcknowledgment(Datagram datagram) throws Exception{
         ack = datagram;
         TCPSegment packet = new TCPSegment(sequenceNumber);
-        host.getIPLayer().send(IPAddress.ANY, datagram.src, IP_PROTO_GOBACKN, packet);
+        double x = rand.nextDouble();
+            if (x > lossProbability) {
+                // if x > lossProbability we can send the packet. Otherwhise the packet is lost.
+                host.getIPLayer().send(IPAddress.ANY, datagram.src, IP_PROTO_GOBACKN, packet);
+            }
     }
 
     /**
