@@ -48,7 +48,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
     /**
      * ACK detection boolean.
      */
-    private boolean ack = false;
+    private Datagram ack = null;
 
     /**
      * The list of packets to be treated by the protocol.
@@ -93,6 +93,21 @@ public class GoBackNProtocol implements IPInterfaceListener {
      */
     private double RTO = 3;
 
+    /**
+     * Used to detect when we need to stop timeout
+     */
+    private boolean stop = false;
+
+    /**
+     * Counter used to detect when we recieve 3 ack for the same packet
+     */
+    private int tripleAck = 0;
+
+    /**
+     * Used to store the sequenceNumber of the last ack
+     */    
+    private int repeatedAckNumber = -1;
+    
     /**
      * Built-in timer adapted from the AppAlone class and using the same structure and principles.
      */
@@ -201,16 +216,27 @@ public class GoBackNProtocol implements IPInterfaceListener {
                            " host=" + host.name + ", dgram.src=" + datagram.src + ", dgram.dst=" +
                            datagram.dst + ", iif=" + src + ", data=" + segment);
         if(segment.isAck()){
+            // Is used to detect triple ack
+            if (repeatedAckNumber >= 0 && segment.sequenceNumber == repeatedAckNumber) {
+                tripleAck += 1;
+            }
+            repeatedAckNumber = segment.sequenceNumber;
+            if (tripleAck == 3) {
+                // Triple ack detected, we resend the whole window
+                System.out.println("TRIPLE ACK ///////////////");
+                tripleAck = 0;
+                timeout(datagram.src);
+            }
+
+
             //TODO Check if corrupt or not
             sendBase = segment.sequenceNumber + 1;
-            if (sendBase == sequenceNumber) {
+            if (sendBase == this.sequenceNumber) {
+                System.out.println("-------------------------STOP");
+                stop = true;
                 timer.stop();
-                changeRTO();
             } else {
-                if (timer.isRunning()) {
-                    timer.stop();
-                    changeRTO();
-                }
+                // changeRTO();
                 timer = new MyTimer(host.getNetwork().getScheduler(), RTO, datagram.src);
                 timer.start();
             }
@@ -221,13 +247,11 @@ public class GoBackNProtocol implements IPInterfaceListener {
         else{
             //TODO Check if corrupt or not
             if (segment.sequenceNumber == sequenceNumber) {
-                int[] data = segment.data;
                 // TODO find how do we deliver data to application
                 sendAcknowledgment(datagram);
-                ack = true;
                 sequenceNumber += 1;
             } else {
-                if (!ack) {
+                if (ack != null) {
                     sendAcknowledgment(datagram);
                 }
             }
@@ -242,9 +266,17 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * @prints timeout message.
      */
     public void timeout(IPAddress dst) throws Exception {
-        System.out.println("========== TIMEOUT ==========");
-        for (int i = sendBase; i < sequenceNumber; i++) {
-            host.getIPLayer().send(IPAddress.ANY, dst, IP_PROTO_GOBACKN, packetList[i]);
+        if (!stop) {
+            timer = new MyTimer(host.getNetwork().getScheduler(), RTO, dst);
+            timer.start();
+            System.out.println("========== TIMEOUT ==========");
+            int lowBound = sendBase-1;
+            if (sendBase == 0) {
+                lowBound = 0;
+            }
+            for (int i = lowBound; i < sequenceNumber; i++) {
+                host.getIPLayer().send(IPAddress.ANY, dst, IP_PROTO_GOBACKN, packetList[i]);
+            }
         }
     }
 
@@ -290,6 +322,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * @see reso.ip.IPLayer Exception origin.
      */
     private void sendAcknowledgment(Datagram datagram) throws Exception{
+        ack = datagram;
         TCPSegment packet = new TCPSegment(sequenceNumber);
         host.getIPLayer().send(IPAddress.ANY, datagram.src, IP_PROTO_GOBACKN, packet);
     }
