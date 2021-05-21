@@ -10,6 +10,7 @@ import reso.ip.IPInterfaceAdapter;
 import reso.ip.IPInterfaceListener;
 import reso.scheduler.AbstractScheduler;
 
+import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.Math;
 
@@ -21,6 +22,7 @@ import java.lang.Math;
  */
 public class GoBackNProtocol implements IPInterfaceListener {
 
+    // IP VARIABLES ===========================================================================
     /**
      * The protocol number identifying Go-Back-N.
      */
@@ -30,6 +32,8 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * The host of the protocol.
      */
     private final IPHost host;
+
+    // GO-BACK-N SPECIFIC VARIABLES ===========================================================
 
     /**
      * Current sequence number, determines packet being treated.
@@ -46,9 +50,10 @@ public class GoBackNProtocol implements IPInterfaceListener {
      */
     public double size = 1;
 
+    // PACKET RELATED VARIABLES ===============================================================
     
     /**
-     * Last ack stored;
+     * Last ack stored.
      */
     private Datagram ack = null;
 
@@ -57,13 +62,17 @@ public class GoBackNProtocol implements IPInterfaceListener {
      */
     private TCPSegment[] packetList;
 
+    // TIMER ==================================================================================
+
     /**
      * Instance of the timer.
      */
     protected MyTimer timer;
 
+    // PACKET LOSS SIMULATION RANDOMISATION VARIABLES =========================================
+
     /**
-     * Random generator used to simulate the loss of packet
+     * Random generator used to simulate the loss of packet.
      */
     private static Random rand = new Random();
 
@@ -71,6 +80,8 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * The probability that has a packet to get lost.
      */
     private final double lossProbability = 0.05;
+
+    // RTP CALCULATION RELATED VARIABLES ======================================================
 
     /**
      * Alpha.
@@ -83,34 +94,31 @@ public class GoBackNProtocol implements IPInterfaceListener {
     private static double BETA = 0.25;
 
     /**
-     * Previous SRTT.
+     * SRTT. Updated in calculation.
      */
     private double SRTT;
     /**
-     * Old DevRTT
+     * DevRTT. Updated in calculation.
      */
     private double DevRTT;
     /**
-     * RTO
+     * RTO. Used as interval of time in timer.
      */
     private double RTO = 3;
 
-    /**
-     * Used to detect when we need to stop timeout
-     */
-    private boolean stop = false;
+    // TIMEOUT RELATED VARIABLES ==============================================================
 
     /**
-     * Counter used to detect when we recieve 3 ack for the same packet
+     * Counter used for the detection of triple ACKs for a packet.
      */
     private int tripleAck = 0;
 
     /**
-     * Used to store the sequenceNumber of the last ack
+     * Used to store the sequenceNumber of the last ACK.
      */    
     private int repeatedAckNumber = -1;
 
-    // THIS IS FOR CONGESTION CONTROL VARIABLES ============================================
+    // CONGESTION CONTROL VARIABLES ===========================================================
     /**
      * Storage variable for old window size. Used in congestion control.
      */
@@ -120,20 +128,23 @@ public class GoBackNProtocol implements IPInterfaceListener {
      */
     private double newSize;
     /**
-     * Maximum Message Size constant for congestion control. In every case here, equals 1.
+     * Maximum Message Size constant for congestion control.
+     * In this implementation we only ever send 1 packet per message.
      */
     private final int MSS = 1;
     /**
-     * Threshold to delimit slow start, set to a high value to begin with.
+     * Threshold to delimit slow start, set to a high value to prevent self-chocking.
      */
-    private final double sstresh = 20;
+    private double sstresh = 20;
+
+    // FILE HANDLING VARIABLES =====================================================================
 
     /**
      * Used to write window's size variation in a csv file.
      */
-    private CsvFileHandler fileHandler;
+    private String exportData; 
     
-    // END OF VARIABLES =======================================================================
+    // END OF VARIABLES =====================================================================
     
     /**
      * Built-in timer adapted from the AppAlone class and using the same structure and principles.
@@ -177,7 +188,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
         }
 
         /**
-         * Starts the timer, stores the current value of time in startTime;
+         * Starts the timer, stores the current value of time in startTime.
          */
         @Override
         public void start() {
@@ -187,7 +198,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
             }
         }
         /**
-         * Stops the timer, stores the current value of time in stopTime;
+         * Stops the timer, stores the current value of time in stopTime.
          */
         @Override
         public void stop() {
@@ -212,7 +223,6 @@ public class GoBackNProtocol implements IPInterfaceListener {
     public GoBackNProtocol(IPHost host) throws IOException {
         this.host= host;
     	host.getIPLayer().addListener(this.IP_PROTO_GOBACKN, this);
-        this.fileHandler = new CsvFileHandler();
     }
 
     /**
@@ -247,7 +257,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
         //                    datagram.dst + ", iif=" + src + ", data=" + segment);
         if(segment.isAck()){
             // Is used to detect triple ack
-            System.out.println("- RECIEVED ACK n°" + segment.sequenceNumber);
+            System.out.println("- RECIEVED ACK nÂ°" + segment.sequenceNumber);
             if (repeatedAckNumber >= 0){
                 if (sequenceNumber == repeatedAckNumber){
                     tripleAck += 1;
@@ -272,22 +282,23 @@ public class GoBackNProtocol implements IPInterfaceListener {
                 size = size + MSS/size;
             }
             newSize = size;
-            fileHandler.writeFile(new int[]{(int)size, sequenceNumber});
+            exportData += host.getNetwork().getScheduler().getCurrentTime() + "," + size + "\n"; 
+            
             double offset = newSize - oldSize;
 
-            //TODO Check if corrupt or not
+            // Check if corrupt or not
             sendBase = segment.sequenceNumber + 1;
             if (sendBase == sequenceNumber) {
                 System.out.println("-------------------------STOP");
-                fileHandler.closeFile();
                 timer.stop();
+                FileWriter fw = new FileWriter("WindowsSize.csv");
+                fw.write(exportData);
+                fw.close();
             } else {
                 changeRTO();
                 timer = new MyTimer(host.getNetwork().getScheduler(), RTO, datagram.src);
                 timer.start();
 
-                System.out.println(size);
-                //sendData(packetList[sequenceNumber].data[0], datagram.src);
             }
             // now we send next pkt
             for (int i = 0; i <= offset; i++) {
@@ -295,10 +306,10 @@ public class GoBackNProtocol implements IPInterfaceListener {
             }
         }
         else{
-            System.out.println("- RECIEVED PKT n°" + segment.sequenceNumber);
-            //TODO Check if corrupt or not
+            System.out.println("- RECIEVED PKT n" + segment.sequenceNumber);
+            // Check if corrupt or not
             if (segment.sequenceNumber == sequenceNumber) {
-                // TODO find how do we deliver data to application
+                // find how do we deliver data to application
                 sendAcknowledgment(datagram);
                 sequenceNumber += 1; 
             } else {
@@ -326,10 +337,13 @@ public class GoBackNProtocol implements IPInterfaceListener {
             System.out.println("------ Timeout");
         }
         for (int i = sendBase; i < sequenceNumber; i++) {
-            System.out.println("-------- RESEND pkt n°" + i);
+            System.out.println("-------- RESEND pkt n" + i);
             host.getIPLayer().send(IPAddress.ANY, dst, IP_PROTO_GOBACKN, packetList[i]);
         }
+        sstresh = size / 2;
         size = 1;
+        exportData += host.getNetwork().getScheduler().getCurrentTime() + "," + size + "\n"; 
+
     }
 
     /**
