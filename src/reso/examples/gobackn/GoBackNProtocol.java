@@ -1,4 +1,3 @@
-
 package reso.examples.gobackn;
 
 import java.util.Random;
@@ -11,8 +10,6 @@ import reso.ip.IPInterfaceAdapter;
 import reso.ip.IPInterfaceListener;
 import reso.scheduler.AbstractScheduler;
 
-import java.io.File;
-import java.io.FileWriter;
 import java.lang.Math;
 
 /**
@@ -76,7 +73,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
     /**
      * The probability that has a packet to get lost.
      */
-    private final double lossProbability = 0.20;
+    private final double lossProbability = 0.05;
 
     /**
      * Alpha.
@@ -162,8 +159,10 @@ public class GoBackNProtocol implements IPInterfaceListener {
          */
         @Override
         public void start() {
-            super.start();
-            startTime = scheduler.getCurrentTime();
+            if (sequenceNumber < packetList.length) {
+                super.start();
+                startTime = scheduler.getCurrentTime();
+            }
         }
         /**
          * Stops the timer, stores the current value of time in stopTime;
@@ -235,16 +234,15 @@ public class GoBackNProtocol implements IPInterfaceListener {
             repeatedAckNumber = segment.sequenceNumber;
             if (tripleAck == 3) {
                 // Triple ack detected, we resend the whole window
-                System.out.println("TRIPLE ACK ///////////////");
-                tripleAck = 0;
                 timeout(datagram.src);
+                tripleAck = 0;
             }
 
 
 
             //TODO Check if corrupt or not
             sendBase = segment.sequenceNumber + 1;
-            if (sendBase == this.sequenceNumber) {
+            if (sendBase == sequenceNumber) {
                 System.out.println("-------------------------STOP");
                 stop = true;
                 timer.stop();
@@ -252,8 +250,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
                 // changeRTO();
                 timer = new MyTimer(host.getNetwork().getScheduler(), RTO, datagram.src);
                 timer.start();
-            }
-            if (sequenceNumber < packetList.length) {
+                // now we send next pkt
                 sendData(packetList[sequenceNumber].data[0], datagram.src);
             }
         }
@@ -262,10 +259,11 @@ public class GoBackNProtocol implements IPInterfaceListener {
             if (segment.sequenceNumber == sequenceNumber) {
                 // TODO find how do we deliver data to application
                 sendAcknowledgment(datagram);
-                sequenceNumber += 1;
+                sequenceNumber += 1; 
             } else {
                 if (ack != null) {
-                    sendAcknowledgment(datagram);
+                    System.out.println(ack);
+                    sendAcknowledgment(ack);
                 }
             }
         }
@@ -279,17 +277,20 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * @prints timeout message.
      */
     public void timeout(IPAddress dst) throws Exception {
-        if (!stop) {
-            timer = new MyTimer(host.getNetwork().getScheduler(), RTO, dst);
-            timer.start();
-            System.out.println("========== TIMEOUT ==========");
-            int lowBound = sendBase-1;
-            if (sendBase == 0) {
-                lowBound = 0;
+        timer = new MyTimer(host.getNetwork().getScheduler(), RTO, dst);
+        timer.start();
+        // lowBound is a lower bound used to ensure that we send the correct pkt
+        int lowBound = sendBase-1;
+        if (sendBase == 0) {
+            lowBound = 0;
+        }
+        for (int i = sendBase; i < sequenceNumber; i++) {
+            if (tripleAck == 3) {
+                System.out.println("Triple ACK, sending pkt : " + i);
+            } else {
+                System.out.println("Timeout, sending pkt : " + i);
             }
-            for (int i = lowBound; i < sequenceNumber; i++) {
-                host.getIPLayer().send(IPAddress.ANY, dst, IP_PROTO_GOBACKN, packetList[i]);
-            }
+            host.getIPLayer().send(IPAddress.ANY, dst, IP_PROTO_GOBACKN, packetList[i]);
         }
     }
 
@@ -303,7 +304,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * @prints packet loss message if a packet is lost. Can be prevented by removing segment loss simulator (see code).
      */
     public void sendData(int data, IPAddress destination) throws Exception{
-        if (sequenceNumber < sendBase + size) {
+        if (sequenceNumber < sendBase + size && sequenceNumber < packetList.length) {
             int[] segmentData = new int[]{data};
             TCPSegment packet = new TCPSegment(segmentData, sequenceNumber);
             packetList[sequenceNumber] = packet;
@@ -335,13 +336,13 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * @see reso.ip.IPLayer Exception origin.
      */
     private void sendAcknowledgment(Datagram datagram) throws Exception{
-        ack = datagram;
-        TCPSegment packet = new TCPSegment(sequenceNumber);
+        TCPSegment packet = new TCPSegment(((TCPSegment) datagram.getPayload()).sequenceNumber);
         double x = rand.nextDouble();
-            if (x > lossProbability) {
-                // if x > lossProbability we can send the packet. Otherwhise the packet is lost.
-                host.getIPLayer().send(IPAddress.ANY, datagram.src, IP_PROTO_GOBACKN, packet);
-            }
+        if (x > lossProbability) {
+            // if x > lossProbability we can send the packet. Otherwhise the packet is lost.
+            host.getIPLayer().send(IPAddress.ANY, datagram.src, IP_PROTO_GOBACKN, packet);
+        }
+        ack = datagram;
     }
 
     /**
