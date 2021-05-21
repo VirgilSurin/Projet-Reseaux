@@ -43,12 +43,8 @@ public class GoBackNProtocol implements IPInterfaceListener {
     /**
      * Size of the window. End of the window is sequenceNumber = sendBase + size.
      */
-    public int size = 5;
+    public double size = 1;
 
-    /**
-     * Old value os size, used to determine which packet to send next.
-     */    
-    public int oldSize = size;
     
     /**
      * Last ack stored;
@@ -112,6 +108,26 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * Used to store the sequenceNumber of the last ack
      */    
     private int repeatedAckNumber = -1;
+
+    // THIS IS FOR CONGESTION CONTROL VARIABLES ============================================
+    /**
+     * Storage variable for old window size. Used in congestion control.
+     */
+    private double oldSize;
+    /**
+     * Storage variable for new window size. Used in congestion control.
+     */
+    private double newSize;
+    /**
+     * Maximum Message Size constant for congestion control. In every case here, equals 1.
+     */
+    private final int MSS = 1;
+    /**
+     * Threshold to delimit slow start, set to a high value to begin with.
+     */
+    private final double sstresh = 20;
+
+    // END OF VARIABLES =======================================================================
     
     /**
      * Built-in timer adapted from the AppAlone class and using the same structure and principles.
@@ -237,9 +253,18 @@ public class GoBackNProtocol implements IPInterfaceListener {
                 // Triple ack detected, we resend the whole window
                 timeout(datagram.src);
                 tripleAck = 0;
+                size = size/2;
             }
 
-
+            oldSize = size;
+            if (size <= sstresh){
+                size += MSS;
+            }
+            else {
+                size = size + MSS/size;
+            }
+            newSize = size;
+            double offset = newSize - oldSize;
 
             //TODO Check if corrupt or not
             sendBase = segment.sequenceNumber + 1;
@@ -250,7 +275,12 @@ public class GoBackNProtocol implements IPInterfaceListener {
                 changeRTO();
                 timer = new MyTimer(host.getNetwork().getScheduler(), RTO, datagram.src);
                 timer.start();
-                // now we send next pkt
+
+                System.out.println(size);
+                //sendData(packetList[sequenceNumber].data[0], datagram.src);
+            }
+            // now we send next pkt
+            for (int i = 0; i <= offset; i++) {
                 sendData(packetList[sequenceNumber].data[0], datagram.src);
             }
         }
@@ -289,6 +319,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
             System.out.println("-------- RESEND pkt n°" + i);
             host.getIPLayer().send(IPAddress.ANY, dst, IP_PROTO_GOBACKN, packetList[i]);
         }
+        size = 1;
     }
 
     /**
