@@ -10,6 +10,7 @@ import reso.ip.IPInterfaceAdapter;
 import reso.ip.IPInterfaceListener;
 import reso.scheduler.AbstractScheduler;
 
+import java.io.IOException;
 import java.lang.Math;
 
 /**
@@ -127,6 +128,11 @@ public class GoBackNProtocol implements IPInterfaceListener {
      */
     private final double sstresh = 20;
 
+    /**
+     * Used to write window's size variation in a csv file.
+     */
+    private CsvFileHandler fileHandler;
+    
     // END OF VARIABLES =======================================================================
     
     /**
@@ -201,10 +207,12 @@ public class GoBackNProtocol implements IPInterfaceListener {
     /**
      * Receiver GoBackNProtocol constructor.
      * @param host of the protocol.
+     * @throws IOException
      */
-    public GoBackNProtocol(IPHost host) {
+    public GoBackNProtocol(IPHost host) throws IOException {
         this.host= host;
     	host.getIPLayer().addListener(this.IP_PROTO_GOBACKN, this);
+        this.fileHandler = new CsvFileHandler();
     }
 
     /**
@@ -264,12 +272,14 @@ public class GoBackNProtocol implements IPInterfaceListener {
                 size = size + MSS/size;
             }
             newSize = size;
+            fileHandler.writeFile(new int[]{(int)size, sequenceNumber});
             double offset = newSize - oldSize;
 
             //TODO Check if corrupt or not
             sendBase = segment.sequenceNumber + 1;
             if (sendBase == sequenceNumber) {
                 System.out.println("-------------------------STOP");
+                fileHandler.closeFile();
                 timer.stop();
             } else {
                 changeRTO();

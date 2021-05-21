@@ -4,6 +4,8 @@ import reso.common.AbstractApplication;
 import reso.ip.IPHost;
 import reso.ip.IPLayer;
 
+import java.io.IOException;
+
 /**
  * Receiver application of the Go-Back-N pipelining protocol.
  * Receives messages from AppSender.
@@ -29,7 +31,7 @@ public class AppReceiver
 	 * Starts the application.
 	 * @see reso.examples.gobackn.GoBackNProtocol GoBackNProtocol
 	 */
-	public void start() {
+	public void start() throws IOException {
         GoBackNProtocol transport = new GoBackNProtocol((IPHost) host);
     }
 
