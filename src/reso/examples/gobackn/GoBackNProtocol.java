@@ -252,12 +252,10 @@ public class GoBackNProtocol implements IPInterfaceListener {
     @Override
     public void receive(IPInterfaceAdapter src, Datagram datagram) throws Exception {
     	TCPSegment segment= (TCPSegment) datagram.getPayload();
-        // System.out.println("Data (" + (int) (host.getNetwork().getScheduler().getCurrentTime()*1000) + "ms)" +
-        //                    " host=" + host.name + ", dgram.src=" + datagram.src + ", dgram.dst=" +
-        //                    datagram.dst + ", iif=" + src + ", data=" + segment);
+    	// If is an ACK segment, sender side of Go-Back-N.
         if(segment.isAck()){
-            // Is used to detect triple ack
-            System.out.println("- RECIEVED ACK nÂ°" + segment.sequenceNumber);
+            // Is used to detect triple ack.
+            System.out.println("- RECIEVED ACK n°" + segment.sequenceNumber);
             if (repeatedAckNumber >= 0){
                 if (sequenceNumber == repeatedAckNumber){
                     tripleAck += 1;
@@ -268,12 +266,13 @@ public class GoBackNProtocol implements IPInterfaceListener {
             }
             repeatedAckNumber = segment.sequenceNumber;
             if (tripleAck == 3) {
-                // Triple ack detected, we resend the whole window
+                // Triple ack detected, we resend the whole window.
                 timeout(datagram.src);
                 tripleAck = 0;
+                // Multiplicative decrease.
                 size = size/2;
             }
-
+            // Additive increase.
             oldSize = size;
             if (size <= sstresh){
                 size += MSS;
@@ -300,11 +299,11 @@ public class GoBackNProtocol implements IPInterfaceListener {
                 timer.start();
 
             }
-            // now we send next pkt
             for (int i = 0; i <= offset; i++) {
                 sendData(packetList[sequenceNumber].data[0], datagram.src);
             }
         }
+        // Else is not an ACK segment, receiver side of Go-Back-N.
         else{
             System.out.println("- RECIEVED PKT n" + segment.sequenceNumber);
             // Check if corrupt or not
@@ -321,7 +320,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
     }
 
     /**
-     * Timeout event handler. Tries to send again.
+     * Timeout event handler. Tries to send the whole window again.
      * @param dst destination of the cause of the timeout.
      * @throws Exception caught from reso.ip.IPLayer.send() method.
      * @see reso.ip.IPLayer Exception origin.
@@ -340,6 +339,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
             System.out.println("-------- RESEND pkt n" + i);
             host.getIPLayer().send(IPAddress.ANY, dst, IP_PROTO_GOBACKN, packetList[i]);
         }
+        // Congestion control.
         sstresh = size / 2;
         size = 1;
         exportData += host.getNetwork().getScheduler().getCurrentTime() + "," + size + "\n"; 
@@ -361,7 +361,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
             TCPSegment packet = new TCPSegment(segmentData, sequenceNumber);
             packetList[sequenceNumber] = packet;
 
-            //                              =>Segment loss simulator<=
+            //                              =>Packet loss simulator<=
             double x = rand.nextDouble();
             if (x > lossProbability) {
                 // if x > lossProbability we can send the packet. Otherwhise the packet is lost.
@@ -378,11 +378,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
                 timer.start();
             }
             sequenceNumber += 1;
-        } else {
-            // no gud
         }
-
-        
     }
 
     /**
@@ -393,6 +389,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
      */
     private void sendAcknowledgment(Datagram datagram) throws Exception{
         TCPSegment packet = new TCPSegment(((TCPSegment) datagram.getPayload()).sequenceNumber);
+        //                              =>ACK loss simulator<=
         double x = rand.nextDouble();
         if (x > lossProbability) {
             // if x > lossProbability we can send the packet. Otherwhise the packet is lost.
@@ -432,7 +429,6 @@ public class GoBackNProtocol implements IPInterfaceListener {
 
     /**
      * Method to get current RTO.
-     * @return current RTO.
      */
     private void changeRTO(){
         double devRTT = getDevRTT();
