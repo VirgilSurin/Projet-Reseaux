@@ -361,11 +361,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
                 timer.start();
             }
             sequenceNumber += 1;
-        } else {
-            // no gud
         }
-
-        
     }
 
     /**
