@@ -11,8 +11,6 @@ import reso.ip.IPInterfaceAdapter;
 import reso.ip.IPInterfaceListener;
 import reso.scheduler.AbstractScheduler;
 
-import java.io.File;
-import java.io.FileWriter;
 import java.lang.Math;
 
 /**
@@ -47,11 +45,6 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * Size of the window. End of the window is sequenceNumber = sendBase + size.
      */
     public int size = 5;
-
-    /**
-     * Old value os size, used to determine which packet to send next.
-     */    
-    public int oldSize = size;
     
     /**
      * Last ack stored;
@@ -115,6 +108,30 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * Used to store the sequenceNumber of the last ack
      */    
     private int repeatedAckNumber = -1;
+
+    // THIS IS FOR CONGESTION CONTROL VARIABLES ============================================
+    /**
+     * Storage variable for old window size. Used in congestion control.
+     */
+    private int oldSize;
+    /**
+     * Storage variable for new window size. Used in congestion control.
+     */
+    private int newSize;
+    /**
+     * MSS constant for congestion control. In every case here, equals 1.
+     */
+    private final int MSS = 1;
+    /**
+     * Original size of window.
+     */
+    private final int OGSize = size;
+    /**
+     * Threshold to delimit slow start, set to a high value to begin with.
+     */
+    private final int sstresh = OGSize + OGSize/2;
+
+    // END OF VARIABLES =======================================================================
     
     /**
      * Built-in timer adapted from the AppAlone class and using the same structure and principles.
@@ -235,26 +252,50 @@ public class GoBackNProtocol implements IPInterfaceListener {
             repeatedAckNumber = segment.sequenceNumber;
             if (tripleAck == 3) {
                 // Triple ack detected, we resend the whole window
+                size = size/2;
                 System.out.println("TRIPLE ACK ///////////////");
                 tripleAck = 0;
                 timeout(datagram.src);
             }
 
 
+            else {
+                //TODO Check if corrupt or not
+                sendBase = segment.sequenceNumber + 1;
+                if (sendBase == this.sequenceNumber) {
+                    System.out.println("-------------------------STOP");
+                    stop = true;
+                    timer.stop();
+                    //timeout(datagram.src);
+                    //changeRTO();
+                } else {
+                    //changeRTO();
+                    timer = new MyTimer(host.getNetwork().getScheduler(), RTO, datagram.src);
+                    timer.start();
+                }
+                if (sequenceNumber < packetList.length) {
+                    timer = new MyTimer(host.getNetwork().getScheduler(), RTO, datagram.dst);
+                    timer.start();
 
-            //TODO Check if corrupt or not
-            sendBase = segment.sequenceNumber + 1;
-            if (sendBase == this.sequenceNumber) {
-                System.out.println("-------------------------STOP");
-                stop = true;
-                timer.stop();
-            } else {
-                // changeRTO();
-                timer = new MyTimer(host.getNetwork().getScheduler(), RTO, datagram.src);
-                timer.start();
-            }
-            if (sequenceNumber < packetList.length) {
-                sendData(packetList[sequenceNumber].data[0], datagram.src);
+
+
+                /*
+                int increaseSending = (sendBase+size) - sequenceNumber-1;
+                do {
+                    sendData(packetList[sequenceNumber].data[0], datagram.src);
+                    increaseSending --;
+                }
+                while (increaseSending > 0);
+                */
+                    /*
+                    for (int i = 0; i < increasedSize() + 1; i++) {
+                        sendData(packetList[sequenceNumber].data[0], datagram.src);
+                    }
+                    System.out.println(size);
+                     */
+
+                    // sendData(packetList[sequenceNumber].data[0], datagram.src);
+                }
             }
         }
         else{
@@ -265,7 +306,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
                 sequenceNumber += 1;
             } else {
                 if (ack != null) {
-                    sendAcknowledgment(datagram);
+                    sendAcknowledgment(ack);
                 }
             }
         }
@@ -283,12 +324,16 @@ public class GoBackNProtocol implements IPInterfaceListener {
             timer = new MyTimer(host.getNetwork().getScheduler(), RTO, dst);
             timer.start();
             System.out.println("========== TIMEOUT ==========");
+            /*
             int lowBound = sendBase-1;
             if (sendBase == 0) {
                 lowBound = 0;
             }
-            for (int i = lowBound; i < sequenceNumber; i++) {
+
+             */
+            for (int i = sendBase; i < sequenceNumber - 1; i++) {
                 host.getIPLayer().send(IPAddress.ANY, dst, IP_PROTO_GOBACKN, packetList[i]);
+                System.out.println(size);
             }
         }
     }
@@ -326,6 +371,18 @@ public class GoBackNProtocol implements IPInterfaceListener {
         }
 
         
+    }
+
+    private int increasedSize(){
+        oldSize = size;
+        if (size < sstresh){
+            size += MSS;
+        }
+        else {
+            size = size + MSS/size;
+        }
+        newSize = size;
+        return newSize - oldSize;
     }
 
     /**
