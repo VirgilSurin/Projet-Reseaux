@@ -3,8 +3,6 @@ package reso.examples.gobackn;
 import reso.common.AbstractApplication;
 import reso.ip.IPAddress;
 import reso.ip.IPHost;
-
-import java.util.ArrayList;
 import java.util.Random;
 
 /**

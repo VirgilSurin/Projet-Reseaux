@@ -20,6 +20,7 @@ import java.lang.Math;
  */
 public class GoBackNProtocol implements IPInterfaceListener {
 
+    // IP VARIABLES ===========================================================================
     /**
      * The protocol number identifying Go-Back-N.
      */
@@ -29,6 +30,8 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * The host of the protocol.
      */
     private final IPHost host;
+
+    // GO-BACK-N SPECIFIC VARIABLES ===========================================================
 
     /**
      * Current sequence number, determines packet being treated.
@@ -45,9 +48,10 @@ public class GoBackNProtocol implements IPInterfaceListener {
      */
     public double size = 1;
 
+    // PACKET RELATED VARIABLES ===============================================================
     
     /**
-     * Last ack stored;
+     * Last ack stored.
      */
     private Datagram ack = null;
 
@@ -56,13 +60,17 @@ public class GoBackNProtocol implements IPInterfaceListener {
      */
     private TCPSegment[] packetList;
 
+    // TIMER ==================================================================================
+
     /**
      * Instance of the timer.
      */
     protected MyTimer timer;
 
+    // PACKET LOSS SIMULATION RANDOMISATION VARIABLES =========================================
+
     /**
-     * Random generator used to simulate the loss of packet
+     * Random generator used to simulate the loss of packet.
      */
     private static Random rand = new Random();
 
@@ -70,6 +78,8 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * The probability that has a packet to get lost.
      */
     private final double lossProbability = 0.05;
+
+    // RTP CALCULATION RELATED VARIABLES ======================================================
 
     /**
      * Alpha.
@@ -82,34 +92,31 @@ public class GoBackNProtocol implements IPInterfaceListener {
     private static double BETA = 0.25;
 
     /**
-     * Previous SRTT.
+     * SRTT. Updated in calculation.
      */
     private double SRTT;
     /**
-     * Old DevRTT
+     * DevRTT. Updated in calculation.
      */
     private double DevRTT;
     /**
-     * RTO
+     * RTO. Used as interval of time in timer.
      */
     private double RTO = 3;
 
-    /**
-     * Used to detect when we need to stop timeout
-     */
-    private boolean stop = false;
+    // TIMEOUT RELATED VARIABLES ==============================================================
 
     /**
-     * Counter used to detect when we recieve 3 ack for the same packet
+     * Counter used for the detection of triple ACKs for a packet.
      */
     private int tripleAck = 0;
 
     /**
-     * Used to store the sequenceNumber of the last ack
+     * Used to store the sequenceNumber of the last ACK.
      */    
     private int repeatedAckNumber = -1;
 
-    // THIS IS FOR CONGESTION CONTROL VARIABLES ============================================
+    // CONGESTION CONTROL VARIABLES ===========================================================
     /**
      * Storage variable for old window size. Used in congestion control.
      */
@@ -119,15 +126,16 @@ public class GoBackNProtocol implements IPInterfaceListener {
      */
     private double newSize;
     /**
-     * Maximum Message Size constant for congestion control. In every case here, equals 1.
+     * Maximum Message Size constant for congestion control.
+     * In this implementation we only ever send 1 packet per message.
      */
     private final int MSS = 1;
     /**
-     * Threshold to delimit slow start, set to a high value to begin with.
+     * Threshold to delimit slow start, set to a high value to prevent self-chocking.
      */
     private final double sstresh = 20;
 
-    // END OF VARIABLES =======================================================================
+    // END OF VARIABLES ======================================================================
     
     /**
      * Built-in timer adapted from the AppAlone class and using the same structure and principles.
@@ -171,7 +179,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
         }
 
         /**
-         * Starts the timer, stores the current value of time in startTime;
+         * Starts the timer, stores the current value of time in startTime.
          */
         @Override
         public void start() {
@@ -181,7 +189,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
             }
         }
         /**
-         * Stops the timer, stores the current value of time in stopTime;
+         * Stops the timer, stores the current value of time in stopTime.
          */
         @Override
         public void stop() {
@@ -276,8 +284,6 @@ public class GoBackNProtocol implements IPInterfaceListener {
                 timer = new MyTimer(host.getNetwork().getScheduler(), RTO, datagram.src);
                 timer.start();
 
-                System.out.println(size);
-                //sendData(packetList[sequenceNumber].data[0], datagram.src);
             }
             // now we send next pkt
             for (int i = 0; i <= offset; i++) {
@@ -289,6 +295,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
             //TODO Check if corrupt or not
             if (segment.sequenceNumber == sequenceNumber) {
                 // TODO find how do we deliver data to application
+
                 sendAcknowledgment(datagram);
                 sequenceNumber += 1; 
             } else {
