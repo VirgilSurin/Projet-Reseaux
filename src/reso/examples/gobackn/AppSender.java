@@ -20,6 +20,11 @@ public class AppSender
      * The number of packets to deliver.
      */
     private final int numberOfPackets;
+
+    /**
+     * Probability that has a packet to be lost.
+     */
+    private double lossProbability;
     
     /**
      * Sender application constructor.
@@ -27,10 +32,11 @@ public class AppSender
      * @param dst destination of the messages.
      * @param numberOfPackets to deliver.
      */
-    public AppSender(IPHost host, IPAddress dst, int numberOfPackets) {	
+    public AppSender(IPHost host, IPAddress dst, int numberOfPackets, double lossProbability) {	
     	super(host, "sender");
     	this.dst= dst;
     	this.numberOfPackets = numberOfPackets;
+        this.lossProbability = lossProbability;
     }
 
     /**
@@ -46,7 +52,7 @@ public class AppSender
         for (int i = 0; i < numberOfPackets; i++) {
             packetList[i] = new TCPSegment(new int[] { rand.nextInt() }, i);
         }
-        GoBackNProtocol transport = new GoBackNProtocol((IPHost) host, packetList);
+        GoBackNProtocol transport = new GoBackNProtocol((IPHost) host, packetList, lossProbability);
         for(int i=0; i < numberOfPackets; i++){
             transport.sendData(packetList[i].data[0], dst);
         }

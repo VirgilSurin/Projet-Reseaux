@@ -79,7 +79,7 @@ public class GoBackNProtocol implements IPInterfaceListener {
     /**
      * The probability that has a packet to get lost.
      */
-    private final double lossProbability = 0.05;
+    private double lossProbability;
 
     // RTP CALCULATION RELATED VARIABLES ======================================================
 
@@ -220,9 +220,10 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * @param host of the protocol.
      * @throws IOException
      */
-    public GoBackNProtocol(IPHost host) throws IOException {
+    public GoBackNProtocol(IPHost host, double lossProbability) throws IOException {
         this.host= host;
     	host.getIPLayer().addListener(this.IP_PROTO_GOBACKN, this);
+        this.lossProbability = lossProbability;
     }
 
     /**
@@ -230,10 +231,11 @@ public class GoBackNProtocol implements IPInterfaceListener {
      * @param host of the protocol.
      * @param packetList to be treated by the protocol.
      */
-    public GoBackNProtocol(IPHost host, TCPSegment[] packetList) {
+    public GoBackNProtocol(IPHost host, TCPSegment[] packetList, double lossProbabilit) {
         this.host= host;
         this.packetList = packetList;
         host.getIPLayer().addListener(this.IP_PROTO_GOBACKN, this);
+        this.lossProbability = lossProbability;
     }
 
     /**

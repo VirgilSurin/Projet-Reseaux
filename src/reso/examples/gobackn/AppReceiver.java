@@ -11,33 +11,40 @@ import java.io.IOException;
  * Receives messages from AppSender.
  */
 public class AppReceiver
-	extends AbstractApplication
+    extends AbstractApplication
 {
-	/**
-	 * The IP layer necessary to the workings of the protocol, which belongs to the transport layer.
-	 */
-	private final IPLayer ip;
+    /**
+     * The IP layer necessary to the workings of the protocol, which belongs to the transport layer.
+     */
+    private final IPLayer ip;
 
-	/**
-	 * Receiver application constructor.
-	 * @param host of the protocol.
-	 */
-	public AppReceiver(IPHost host) {
-		super(host, "receiver");
-		ip= host.getIPLayer();
+    /**
+     * Probability that has a packet to be lost.
+     */
+    private double lossProbability;
+
+    /**
+     * Receiver application constructor.
+     * @param host of the protocol.
+     * @param Probability that has a packet to be lost.    
+     */
+    public AppReceiver(IPHost host, double lossProbability) {
+        super(host, "receiver");
+        this.ip= host.getIPLayer();
+        this.lossProbability = lossProbability;
     }
 
-	/**
-	 * Starts the application.
-	 * @see reso.examples.gobackn.GoBackNProtocol GoBackNProtocol
-	 */
-	public void start() throws IOException {
-        GoBackNProtocol transport = new GoBackNProtocol((IPHost) host);
+    /**
+     * Starts the application.
+     * @see reso.examples.gobackn.GoBackNProtocol GoBackNProtocol
+     */
+    public void start() throws IOException {
+        GoBackNProtocol transport = new GoBackNProtocol((IPHost) host, lossProbability);
     }
 
-	/**
-	 * Stops the application. #TODO might be useless. If so remove.
-	 */
-	public void stop() {}
+    /**
+     * Stops the application. #TODO might be useless. If so remove.
+     */
+    public void stop() {}
 	
 }
